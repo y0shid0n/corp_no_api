@@ -1,0 +1,4 @@
+# common
+conf/config.yml
+output/*
+!output/.gitkeep

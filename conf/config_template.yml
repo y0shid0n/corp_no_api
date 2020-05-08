@@ -1,0 +1,3 @@
+default:
+  api_url: "https://api.houjin-bangou.nta.go.jp/4/diff"
+  api_key: "hogehoge"
