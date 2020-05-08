@@ -8,6 +8,8 @@ import io
 import yaml
 import csv
 import time
+import argparse
+from datetime import datetime
 
 def download_csv(api_url, payload):
     # リクエストを投げる
@@ -43,6 +45,19 @@ def download_csv(api_url, payload):
     return int(sep_num)
 
 if __name__ == "__main__":
+    # 引数の処理
+    parser = argparse.ArgumentParser(description='download corporation number csv')
+    parser.add_argument("-d", "--date", type=str, help="YYYY-MM-DD")
+    args = parser.parse_args()
+    target_date = args.date
+
+    # target_dateのチェック
+    try:
+        datetime.strptime(target_date, "%Y-%m-%d")
+    except ValueError:
+        print("*****args must be YYYY-MM-DD*****")
+        exit(1)
+
     # yaml読み込み
     with open("./conf/config.yml") as f:
         conf = yaml.safe_load(f)
@@ -54,8 +69,6 @@ if __name__ == "__main__":
     # パラメータの設定
     # とりあえず1日分ずつ取る想定
     # 取得方法によってpayloadを変える関数を作るのがよさげ？
-    target_date = "2020-05-07" # ここは引数で制御予定
-
     payload = {
         "id": api_key,
         "from": target_date,
