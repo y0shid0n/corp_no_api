@@ -42,9 +42,9 @@ def create_args():
     g_sub.add_argument("--divide", type=int, default=None, help="separated number") # to judge whether to repeat, default value is None
     g_opt = parser.add_argument_group("optional group")
     g_opt.add_argument("--history", type=int, choices=[0, 1], default=0, help="wheter to get old info (use with --corpno)")
-    g_opt.add_argument("--address", type=int, help="area code (use with --date or --name): 2-digit or 5-digit integer")
+    g_opt.add_argument("--address", type=int, help="area code (use with --date, --period or --name): 2-digit or 5-digit integer")
     g_opt.add_argument("--kind", type=str, nargs="*", default=["01", "02", "03", "04"], choices=["01", "02", "03", "04"]
-        , help="corporate type (use with --date or --name): government agency, local government, corpration or others")
+        , help="corporate type (use with --date, --period or --name): government agency, local government, corpration or others")
     g_opt.add_argument("--mode", type=int, choices=[1, 2], default=1, help="search type (use with --name): prefix match or partial match")
     g_opt.add_argument("--target", type=int, choices=[1, 2, 3], default=1, help="search target (use with --name): fuzzy search, exact match or English")
     g_opt.add_argument("--change", type=int, choices=[0, 1], default=0, help="wheter search old info (use with --name)")
