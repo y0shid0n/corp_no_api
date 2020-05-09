@@ -1,9 +1,7 @@
-# 法人番号検索APIを叩いてcsvに出力する
-# とりあえず指定日付をとるかんじ
-# ToDo: パラメータは引数で与えるようにしたい
-# ToDo: 法人番号を指定する場合とかも作る必要がある
+# save csv from corporate number search api
 
 import requests
+from urllib.parse import urljoin
 import io
 import yaml
 import csv
@@ -11,23 +9,168 @@ import time
 import argparse
 from datetime import datetime
 
-def download_csv(api_url, payload):
-    # リクエストを投げる
+def create_payload(api_key, **kwargs):
+    """
+    create url and payload depending on args
+    """
+    # default payload
+    payload = {
+        "id": api_key,
+        "type": kwargs["type"]
+    }
+
+    if kwargs["corpno"]:
+        payload["number"] = kwargs["corpno"]
+        payload["history"] = kwargs["history"]
+    elif kwargs["date"]:
+        payload["from"] = kwargs["date"]
+        payload["to"] = kwargs["date"]
+        payload["kind"] = kwargs["kind"]
+        payload["divide"] = kwargs["divide"]
+        if kwargs["address"]:
+            payload["address"] = kwargs["address"]
+    elif kwargs["period"]:
+        payload["from"] = kwargs["start"]
+        payload["to"] = kwargs["end"]
+        payload["kind"] = kwargs["kind"]
+        payload["divide"] = kwargs["divide"]
+        if kwargs["address"]:
+            payload["address"] = kwargs["address"]
+    else:
+        payload["name"] = kwargs["name"]
+        payload["mode"] = kwargs["mode"]
+        payload["target"] = kwargs["target"]
+        payload["kind"] = kwargs["kind"]
+        payload["change"] = kwargs["change"]
+        payload["close"] = kwargs["close"]
+        payload["from"] = kwargs["start"]
+        payload["to"] = kwargs["end"]
+        payload["divide"] = kwargs["divide"]
+        if kwargs["address"]:
+            payload["address"] = kwargs["address"]
+
+    return payload
+
+
+def fetch_data(api_url, api_key, **kwargs):
+    """
+    fetch data using created url and payload
+    """
+    payload = create_payload(api_key, **kwargs)
+
+    if kwargs["corpno"]:
+        api_url = urljoin(api_url, "num")
+    elif kwargs["date"] or kwargs["period"]:
+        api_url = urljoin(api_url, "diff")
+    else:
+        api_url = urljoin(api_url, "name")
+
     res = requests.get(api_url, params=payload)
 
-    # 1行目にデータの分割数とかの情報があるので、pandasではなくcsvを使う
+    # ToDo: error check
+    if res.status_code != 200:
+        print("*****http error!!!*****")
+        print(f"status code: {res.status_code}")
+        exit(1)
+
+    return res
+
+def save_csv(res, columns, **kwargs):
+    """
+    save csv file from response
+    """
     reader = csv.reader(io.StringIO(res.text))
 
-    # ファイル名に入れる日付
-    file_date = payload["to"].replace("-", "") # とりあえず1日分ずつ取る想定なので
-
-    # 1行目から分割数を取得（2分割以上だった場合はリクエストを投げなおす必要がある
-    line1 = next(reader) # readerはイテレータなので2行目以降だけになる
+    # get separate number from header
+    line1 = next(reader) # drop header
+    print(line1)
     sep_cnt = line1[2]
     sep_num = line1[3]
 
-    # csvの新しいheader
-    new_header = [
+    # create filname
+    if kwargs["corpno"]:
+        tmp = kwargs["corpno"]
+    elif kwargs["date"]:
+        tmp = kwargs["date"].replace("-", "")
+    elif kwargs["period"]:
+        tmp = kwargs["start"].replace("-", "") + "-" + kwargs["end"].replace("-", "")
+    else:
+        tmp = kwargs["name"]
+
+    dt_now = datetime.now().strftime("%Y%m%d%H%M%S")
+    filename = f"./output/result_{tmp}_{sep_cnt}_{dt_now}.csv"
+
+    with open(filename, "w", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(columns)
+        writer.writerows(reader)
+
+    return int(sep_num) # for repeat
+
+if __name__ == "__main__":
+    # create args
+    parser = argparse.ArgumentParser(description="download corporate number csv")
+    g_main = parser.add_mutually_exclusive_group(required=True) # you must set either "-c", "-d", "-p" or "-n"
+    g_main.add_argument("-c", "--corpno", type=int, help="target corporate number: 13-digit integer")
+    g_main.add_argument("-d", "--date", type=str, help="target date: YYYY-MM-DD")
+    g_main.add_argument("-p", "--period", action="store_true", help="whether to set target period")
+    g_main.add_argument("-n", "--name", type=str, help="corporate name: hoge")
+    g_sub = parser.add_argument_group("sub group")
+    g_sub.add_argument("--start", type=str, help="start date (use with --period or --name): YYYY-MM-DD")
+    g_sub.add_argument("--end", type=str, help="end date (use with --period or --name): YYYY-MM-DD")
+    g_sub.add_argument("--type", type=str, choices=["01", "02", "12"], default="02", help="output file type: csv(sjis), csv(utf8) or xml")
+    g_sub.add_argument("--divide", type=int, default=None, help="separated number") # to judge whether to repeat, default value is None
+    g_opt = parser.add_argument_group("optional group")
+    g_opt.add_argument("--history", type=int, choices=[0, 1], default=0, help="wheter to get old info (use with --corpno)")
+    g_opt.add_argument("--address", type=int, help="area code (use with --date or --name): 2-digit or 5-digit integer")
+    g_opt.add_argument("--kind", type=str, nargs="*", default=["01", "02", "03", "04"], choices=["01", "02", "03", "04"]
+        , help="corporate type (use with --date or --name): government agency, local government, corpration or others")
+    g_opt.add_argument("--mode", type=int, choices=[1, 2], default=1, help="search type (use with --name): prefix match or partial match")
+    g_opt.add_argument("--target", type=int, choices=[1, 2, 3], default=1, help="search target (use with --name): fuzzy search, exact match or English")
+    g_opt.add_argument("--change", type=int, choices=[0, 1], default=0, help="wheter search old info (use with --name)")
+    g_opt.add_argument("--close", type=int, choices=[0, 1], default=1, help="wheter search closed corporation (use with --name)")
+    args = parser.parse_args()
+    args_dict = vars(args)
+
+    # because it is need to judge repeat later, when args.divide is not set, it is need to be remained.
+    # however, because api expects default value is 1, divide_flg is defined and args_dict["divide"] is updated.
+    if not args.divide:
+        divide_flg = None
+        args_dict["divide"] = 1
+    # print(args)
+    # print(args_dict)
+    # exit("exit")
+
+    # check corporate number
+    if args.corpno and len(str(args.corpno)) != 13:
+        print("*****corporate number must be 13-digit integer*****")
+        exit(1)
+
+    # check date
+    if args.date:
+        try:
+            datetime.strptime(args.date, "%Y-%m-%d")
+        except ValueError:
+            print("*****date must be defined by YYYY-MM-DD*****")
+            exit(1)
+    if args.start or args.end:
+        try:
+            datetime.strptime(args.start, "%Y-%m-%d")
+            datetime.strptime(args.end, "%Y-%m-%d")
+        except (ValueError, TypeError):
+            print("*****both start and end must be defined by YYYY-MM-DD*****")
+            exit(1)
+
+    # read yaml
+    with open("./conf/config.yml") as f:
+        conf = yaml.safe_load(f)
+
+    # get api info from yaml
+    api_url = conf["default"]["api_url"]
+    api_key = conf["default"]["api_key"]
+
+    # define columns of csv
+    columns = [
         "sequenceNumber", "corporateNumber", "process", "correct", "updateDate"
         , "changeDate", "name", "nameImageId", "kind", "prefectureName"
         , "cityName", "streetNumber", "addressImageId", "prefectureCode", "cityCode"
@@ -36,53 +179,15 @@ def download_csv(api_url, payload):
         , "enPrefectureName", "enCityName", "enAddressOutsid", "furigana", "hihyoji"
     ]
 
-    # 1行目を書き換えて出力
-    with open(f"./output/result_{file_date}_{sep_cnt}.csv", "w", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        writer.writerow(new_header)
-        writer.writerows(reader) # 2行目以降を書き込む
+    # download csv
+    res = fetch_data(api_url, api_key, **args_dict)
+    sep_num = save_csv(res, columns, **args_dict)
 
-    return int(sep_num)
-
-if __name__ == "__main__":
-    # 引数の処理
-    parser = argparse.ArgumentParser(description='download corporation number csv')
-    parser.add_argument("-d", "--date", type=str, help="YYYY-MM-DD")
-    args = parser.parse_args()
-    target_date = args.date
-
-    # target_dateのチェック
-    try:
-        datetime.strptime(target_date, "%Y-%m-%d")
-    except ValueError:
-        print("*****args must be YYYY-MM-DD*****")
-        exit(1)
-
-    # yaml読み込み
-    with open("./conf/config.yml") as f:
-        conf = yaml.safe_load(f)
-
-    # api
-    api_url = conf["default"]["api_url"]
-    api_key = conf["default"]["api_key"]
-
-    # パラメータの設定
-    # とりあえず1日分ずつ取る想定
-    # 取得方法によってpayloadを変える関数を作るのがよさげ？
-    payload = {
-        "id": api_key,
-        "from": target_date,
-        "to": target_date,
-        "type": "02", # utf-8のcsvで固定
-        "divide": 1 # 分割数が2以上の場合、ここを変えて再度リクエストする
-    }
-
-    # csvのダウンロード
-    sep_num = download_csv(api_url, payload)
-
-    # 2分割以上の場合は再度リクエストと出力を行う
-    if sep_num > 1:
+    # repeat until all separated data are downloaded
+    # when args.divide is not set, fetch_data is not repeated
+    if not divide_flg and sep_num > 1:
         for i in range(2, sep_num + 1):
             time.sleep(5)
-            payload["divide"] = i
-            download_csv(api_url, payload)
+            args_dict["divide"] = i
+            res = fetch_data(api_url, api_key, **args_dict)
+            sep_num = save_csv(res, columns, **args_dict)
