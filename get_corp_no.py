@@ -149,7 +149,7 @@ def save_csv(res, columns, **kwargs):
     hs = hashlib.md5(str(args_tmp).encode()).hexdigest()
     filename = f"./output/result_{tmp}_{sep_cnt}_{hs}.csv"
 
-    with open(filename, "w", encoding="utf-8") as f:
+    with open(filename, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(columns)
         writer.writerows(reader)
