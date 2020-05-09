@@ -9,6 +9,7 @@ import time
 import argparse
 from datetime import datetime
 from logging import getLogger, StreamHandler, Formatter
+import hashlib
 
 # create logger
 logger = getLogger(__name__)
@@ -142,8 +143,9 @@ def save_csv(res, columns, **kwargs):
     else:
         tmp = kwargs["name"]
 
-    dt_now = datetime.now().strftime("%Y%m%d%H%M%S")
-    filename = f"./output/result_{tmp}_{sep_cnt}_{dt_now}.csv"
+    # create hash value of args
+    hs = hashlib.md5(str(kwargs).encode()).hexdigest()
+    filename = f"./output/result_{tmp}_{sep_cnt}_{hs}.csv"
 
     with open(filename, "w", encoding="utf-8") as f:
         writer = csv.writer(f)
