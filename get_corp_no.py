@@ -144,7 +144,9 @@ def save_csv(res, columns, **kwargs):
         tmp = kwargs["name"]
 
     # create hash value of args
-    hs = hashlib.md5(str(kwargs).encode()).hexdigest()
+    args_tmp = kwargs.copy()
+    del args_tmp["divide"] # prevent to change hash value in repeating
+    hs = hashlib.md5(str(args_tmp).encode()).hexdigest()
     filename = f"./output/result_{tmp}_{sep_cnt}_{hs}.csv"
 
     with open(filename, "w", encoding="utf-8") as f:
