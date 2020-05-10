@@ -195,8 +195,7 @@ def save_csv(res, columns, **kwargs):
     elif kwargs["type"] == "02":
         encoding = "utf-8"
     else:
-        logger.error(f'invalid encoding type: {kwargs["type"]}. \
-            it must be set "01" or "02."')
+        logger.error(f'invalid encoding type: {kwargs["type"]}. it must be set "01" or "02."')
         exit(1)
 
     with open(filename, "w", newline="", encoding=encoding) as f:
@@ -251,8 +250,7 @@ if __name__ == "__main__":
         sep_num = save_csv(res, columns, **args_dict)
     else:
         # ToDo: define save_xml function
-        logger.error("sorry, xml format cannot be used yet. \
-            please use csv format.")
+        logger.error("sorry, xml format cannot be used yet. please use csv format.")
         exit()
 
     # repeat until all separated data are downloaded
