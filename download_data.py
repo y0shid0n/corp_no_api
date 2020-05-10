@@ -135,13 +135,10 @@ def create_payload(api_key, **kwargs):
     return payload
 
 
-def fetch_data(api_url, api_key, **kwargs):
+def fetch_data(api_url, payload, **kwargs):
     """
     fetch data using created url and payload
     """
-    payload = create_payload(api_key, **kwargs)
-    logger.debug(f"payload: {payload}")
-
     if kwargs["corpno"]:
         api_url = urljoin(api_url, "num")
     elif kwargs["date"] or kwargs["period"]:
@@ -245,7 +242,9 @@ if __name__ == "__main__":
 
     # download data
     # ToDo: define function
-    res = fetch_data(api_url, api_key, **args_dict)
+    payload = create_payload(api_key, **args_dict)
+    logger.debug(f"payload: {payload}")
+    res = fetch_data(api_url, payload, **args_dict)
     if args.type in ["01", "02"]:
         sep_num = save_csv(res, columns, **args_dict)
     else:
@@ -258,8 +257,8 @@ if __name__ == "__main__":
     if not args.divide and sep_num > 1:
         for i in range(2, sep_num + 1):
             time.sleep(5)
-            args_dict["divide"] = i
-            res = fetch_data(api_url, api_key, **args_dict)
+            payload["divide"] = i
+            res = fetch_data(api_url, payload, **args_dict)
             if args.type in ["01", "02"]:
                 sep_num = save_csv(res, columns, **args_dict)
             else:
