@@ -6,7 +6,7 @@ https://www.houjin-bangou.nta.go.jp/webapi/
 ## Usage
 
 ```python
-python get_corp_no.py -h
+python download_data.py -h
 # usage: get_corp_no.py [-h] (-c CORPNO | -d DATE | -p PERIOD PERIOD | -n NAME)
 #                       [--type {01,02,12}] [--divide DIVIDE] [--history {0,1}]
 #                       [--address ADDRESS]
