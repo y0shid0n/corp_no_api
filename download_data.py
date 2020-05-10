@@ -38,6 +38,7 @@ def date_type(date_str):
             + " date must be in ISO format(YYYY-MM-DD)")
     return date_str
 
+
 def create_args():
     """
     create args
