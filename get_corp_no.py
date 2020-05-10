@@ -73,7 +73,7 @@ def create_args():
             2-digit or 5-digit integer")
     g_opt.add_argument("--kind", type=str, nargs="*"
         , default=["01", "02", "03", "04"], choices=["01", "02", "03", "04"]
-        , help="corporate type (use with --date, --period or --namse): \
+        , help="corporate type (use with --date, --period or --name): \
             government agency, local government, corpration or others")
     g_opt.add_argument("--mode", type=int, choices=[1, 2], default=1
         , help="search type (use with --name): prefix match or partial match")
@@ -81,9 +81,9 @@ def create_args():
         , help="search target (use with --name): \
             fuzzy search, exact match or English")
     g_opt.add_argument("--change", type=int, choices=[0, 1], default=0
-        , help="wheter search old info (use with --name)")
+        , help="whether search old information (use with --name)")
     g_opt.add_argument("--close", type=int, choices=[0, 1], default=1
-        , help="wheter search closed corporation (use with --name)")
+        , help="whether search closed corporation (use with --name)")
     args = parser.parse_args()
 
     return args
@@ -123,9 +123,10 @@ def create_payload(api_key, **kwargs):
         payload["kind"] = kwargs["kind"]
         payload["change"] = kwargs["change"]
         payload["close"] = kwargs["close"]
-        payload["from"] = kwargs["fromto"][0]
-        payload["to"] = kwargs["fromto"][1]
         payload["divide"] = kwargs["divide"]
+        if kwargs["fromto"]:
+            payload["from"] = kwargs["fromto"][0]
+            payload["to"] = kwargs["fromto"][1]
         if kwargs["address"]:
             payload["address"] = kwargs["address"]
 
