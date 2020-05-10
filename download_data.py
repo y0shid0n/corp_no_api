@@ -201,6 +201,11 @@ if __name__ == "__main__":
     args = create_args()
     logger.debug(f"all args: {args}")
 
+    # check corporate number
+    if args.corpno and len(str(args.corpno)) != 13:
+        logger.error("*****corporate number must be 13-digit integer*****")
+        exit(1)
+
     # it is need to judge repeat later.
     # so it is need to be remained when args.divide is not set.
     # otherwise, api expects default value is 1.
@@ -208,11 +213,6 @@ if __name__ == "__main__":
     args_dict = vars(args).copy()
     if not args.divide:
         args_dict["divide"] = 1
-
-    # check corporate number
-    if args.corpno and len(str(args.corpno)) != 13:
-        logger.error("*****corporate number must be 13-digit integer*****")
-        exit(1)
 
     # read yaml
     with open("./conf/config.yml") as f:
