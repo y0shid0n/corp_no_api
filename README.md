@@ -17,7 +17,7 @@ python download_data.py -h
 
 ## Requirements
 
-the following library:
+the following libraries:
 
 * requests
 * pyyaml
