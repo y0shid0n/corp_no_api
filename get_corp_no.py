@@ -138,7 +138,7 @@ def fetch_data(api_url, api_key, **kwargs):
     fetch data using created url and payload
     """
     payload = create_payload(api_key, **kwargs)
-    logger.debug(payload)
+    logger.debug(f"payload: {payload}")
 
     if kwargs["corpno"]:
         api_url = urljoin(api_url, "num")
@@ -152,8 +152,7 @@ def fetch_data(api_url, api_key, **kwargs):
 
     # ToDo: error check
     if res.status_code != 200:
-        logger.error("*****http error!!!*****")
-        logger.error(f"status code: {res.status_code}")
+        logger.error(f"***http error!!!***; status code: {res.status_code}; response: {res.text}")
         exit(1)
 
     return res
@@ -199,7 +198,7 @@ def save_csv(res, columns, **kwargs):
 if __name__ == "__main__":
     # create args
     args = create_args()
-    logger.debug(args)
+    logger.debug(f"all args: {args}")
 
     # it is need to judge repeat later.
     # so it is need to be remained when args.divide is not set.
