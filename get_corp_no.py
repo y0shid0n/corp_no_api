@@ -1,4 +1,4 @@
-# save csv from corporate number search api
+# download csv from corporate number search api
 
 import requests
 from urllib.parse import urljoin
@@ -7,13 +7,14 @@ import yaml
 import csv
 import time
 import argparse
-from datetime import datetime
+from datetime import date
 from logging import getLogger, StreamHandler, Formatter
 import hashlib
 
 # create logger
 logger = getLogger(__name__)
-log_fmt = Formatter("%(asctime)s %(name)s %(lineno)s [%(levelname)s][%(funcName)s] %(message)s")
+log_fmt = Formatter("%(asctime)s %(name)s %(lineno)s \
+    [%(levelname)s][%(funcName)s] %(message)s")
 
 # set log level
 log_level = "INFO"
@@ -25,33 +26,68 @@ handler.setLevel(log_level)
 handler.setFormatter(log_fmt)
 logger.addHandler(handler)
 
+def date_type(date_str):
+    """
+    type of args used for --date, --start and --end in create_args()
+    it must be string formatted with YYYY-MM-DD
+    """
+    try:
+        date.fromisoformat(date_str)
+    except ValueError as e:
+        raise argparse.ArgumentTypeError(str(e)
+            + " date must be in ISO format(YYYY-MM-DD)")
+    return date_str
+
 def create_args():
     """
     create args
     """
-    parser = argparse.ArgumentParser(description="download corporate number csv")
-    g_main = parser.add_mutually_exclusive_group(required=True) # you must set either "-c", "-d", "-p" or "-n"
-    g_main.add_argument("-c", "--corpno", type=int, help="target corporate number: 13-digit integer")
-    g_main.add_argument("-d", "--date", type=str, help="target date: YYYY-MM-DD")
-    g_main.add_argument("-p", "--period", action="store_true", help="whether to set target period")
+    parser = argparse.ArgumentParser(
+        description="download corporate number and related information by csv"
+        )
+    # you must set either "-c", "-d", "-p" or "-n"
+    g_main = parser.add_mutually_exclusive_group(required=True)
+    g_main.add_argument("-c", "--corpno", type=int
+        , help="target corporate number: 13-digit integer")
+    g_main.add_argument("-d", "--date", type=date_type
+        , help="target date: YYYY-MM-DD")
+    g_main.add_argument("-p", "--period", action="store_true"
+        , help="whether to set target period")
     g_main.add_argument("-n", "--name", type=str, help="corporate name: hoge")
+
     g_sub = parser.add_argument_group("sub group")
-    g_sub.add_argument("--start", type=str, help="start date (use with --period or --name): YYYY-MM-DD")
-    g_sub.add_argument("--end", type=str, help="end date (use with --period or --name): YYYY-MM-DD")
-    g_sub.add_argument("--type", type=str, choices=["01", "02", "12"], default="02", help="output file type: csv(sjis), csv(utf8) or xml")
-    g_sub.add_argument("--divide", type=int, default=None, help="separated number") # to judge whether to repeat, default value is None
+    g_sub.add_argument("--fromto", type=date_type, nargs=2
+        , help="start and end date (use with --period or --name): YYYY-MM-DD")
+    g_sub.add_argument("--type", type=str, choices=["01", "02", "12"]
+        , default="02"
+        , help="output file type: csv(sjis), csv(utf8) or xml")
+    # to judge whether to repeat, default value of --divide is None
+    g_sub.add_argument("--divide", type=int, default=None
+        , help="separated number")
+
     g_opt = parser.add_argument_group("optional group")
-    g_opt.add_argument("--history", type=int, choices=[0, 1], default=0, help="wheter to get old info (use with --corpno)")
-    g_opt.add_argument("--address", type=int, help="area code (use with --date, --period or --name): 2-digit or 5-digit integer")
-    g_opt.add_argument("--kind", type=str, nargs="*", default=["01", "02", "03", "04"], choices=["01", "02", "03", "04"]
-        , help="corporate type (use with --date, --period or --name): government agency, local government, corpration or others")
-    g_opt.add_argument("--mode", type=int, choices=[1, 2], default=1, help="search type (use with --name): prefix match or partial match")
-    g_opt.add_argument("--target", type=int, choices=[1, 2, 3], default=1, help="search target (use with --name): fuzzy search, exact match or English")
-    g_opt.add_argument("--change", type=int, choices=[0, 1], default=0, help="wheter search old info (use with --name)")
-    g_opt.add_argument("--close", type=int, choices=[0, 1], default=1, help="wheter search closed corporation (use with --name)")
+    g_opt.add_argument("--history", type=int, choices=[0, 1], default=0
+        , help="wheter to get old info (use with --corpno)")
+    g_opt.add_argument("--address", type=int
+        , help="area code (use with --date, --period or --name): \
+            2-digit or 5-digit integer")
+    g_opt.add_argument("--kind", type=str, nargs="*"
+        , default=["01", "02", "03", "04"], choices=["01", "02", "03", "04"]
+        , help="corporate type (use with --date, --period or --namse): \
+            government agency, local government, corpration or others")
+    g_opt.add_argument("--mode", type=int, choices=[1, 2], default=1
+        , help="search type (use with --name): prefix match or partial match")
+    g_opt.add_argument("--target", type=int, choices=[1, 2, 3], default=1
+        , help="search target (use with --name): \
+            fuzzy search, exact match or English")
+    g_opt.add_argument("--change", type=int, choices=[0, 1], default=0
+        , help="wheter search old info (use with --name)")
+    g_opt.add_argument("--close", type=int, choices=[0, 1], default=1
+        , help="wheter search closed corporation (use with --name)")
     args = parser.parse_args()
 
     return args
+
 
 def create_payload(api_key, **kwargs):
     """
@@ -74,8 +110,8 @@ def create_payload(api_key, **kwargs):
         if kwargs["address"]:
             payload["address"] = kwargs["address"]
     elif kwargs["period"]:
-        payload["from"] = kwargs["start"]
-        payload["to"] = kwargs["end"]
+        payload["from"] = kwargs["fromto"][0]
+        payload["to"] = kwargs["fromto"][1]
         payload["kind"] = kwargs["kind"]
         payload["divide"] = kwargs["divide"]
         if kwargs["address"]:
@@ -87,8 +123,8 @@ def create_payload(api_key, **kwargs):
         payload["kind"] = kwargs["kind"]
         payload["change"] = kwargs["change"]
         payload["close"] = kwargs["close"]
-        payload["from"] = kwargs["start"]
-        payload["to"] = kwargs["end"]
+        payload["from"] = kwargs["fromto"][0]
+        payload["to"] = kwargs["fromto"][1]
         payload["divide"] = kwargs["divide"]
         if kwargs["address"]:
             payload["address"] = kwargs["address"]
@@ -121,6 +157,7 @@ def fetch_data(api_url, api_key, **kwargs):
 
     return res
 
+
 def save_csv(res, columns, **kwargs):
     """
     save csv file from response
@@ -139,7 +176,8 @@ def save_csv(res, columns, **kwargs):
     elif kwargs["date"]:
         tmp = kwargs["date"].replace("-", "")
     elif kwargs["period"]:
-        tmp = kwargs["start"].replace("-", "") + "-" + kwargs["end"].replace("-", "")
+        tmp = kwargs["fromto"][0].replace("-", "") + "-" \
+            + kwargs["fromto"][1].replace("-", "")
     else:
         tmp = kwargs["name"]
 
@@ -156,13 +194,16 @@ def save_csv(res, columns, **kwargs):
 
     return int(sep_num) # for repeat
 
+
 if __name__ == "__main__":
     # create args
     args = create_args()
     logger.debug(args)
 
-    # because it is need to judge repeat later, when args.divide is not set, it is need to be remained.
-    # however, because api expects default value is 1, args_dict["divide"] is only updated.
+    # it is need to judge repeat later.
+    # so it is need to be remained when args.divide is not set.
+    # otherwise, api expects default value is 1.
+    # so args_dict["divide"] is only updated.
     args_dict = vars(args).copy()
     if not args.divide:
         args_dict["divide"] = 1
@@ -172,21 +213,6 @@ if __name__ == "__main__":
         logger.error("*****corporate number must be 13-digit integer*****")
         exit(1)
 
-    # check date
-    if args.date:
-        try:
-            datetime.strptime(args.date, "%Y-%m-%d")
-        except ValueError:
-            logger.error("*****date must be defined by YYYY-MM-DD*****")
-            exit(1)
-    if args.start or args.end:
-        try:
-            datetime.strptime(args.start, "%Y-%m-%d")
-            datetime.strptime(args.end, "%Y-%m-%d")
-        except (ValueError, TypeError):
-            logger.error("*****both start and end must be defined by YYYY-MM-DD*****")
-            exit(1)
-
     # read yaml
     with open("./conf/config.yml") as f:
         conf = yaml.safe_load(f)
@@ -195,14 +221,15 @@ if __name__ == "__main__":
     api_url = conf["default"]["api_url"]
     api_key = conf["default"]["api_key"]
 
-    # define columns of csv
+    # define columns of csv (30 columns)
     columns = [
         "sequenceNumber", "corporateNumber", "process", "correct", "updateDate"
         , "changeDate", "name", "nameImageId", "kind", "prefectureName"
-        , "cityName", "streetNumber", "addressImageId", "prefectureCode", "cityCode"
-        , "postCode", "addressOutside", "addressOutsideImageId", "closeDate", "closeCause"
-        , "successorCorporateNumber", "changeCause", "assignmentDate", "latest", "enName"
-        , "enPrefectureName", "enCityName", "enAddressOutsid", "furigana", "hihyoji"
+        , "cityName", "streetNumber", "addressImageId", "prefectureCode"
+        , "cityCode", "postCode", "addressOutside", "addressOutsideImageId"
+        , "closeDate", "closeCause", "successorCorporateNumber", "changeCause"
+        , "assignmentDate", "latest", "enName", "enPrefectureName"
+        , "enCityName", "enAddressOutsid", "furigana", "hihyoji"
     ]
 
     # download csv
@@ -210,7 +237,7 @@ if __name__ == "__main__":
     sep_num = save_csv(res, columns, **args_dict)
 
     # repeat until all separated data are downloaded
-    # when args.divide is not set, fetch_data is not repeated
+    # when args.divide is not set, download is not repeated
     if not args.divide and sep_num > 1:
         for i in range(2, sep_num + 1):
             time.sleep(5)
