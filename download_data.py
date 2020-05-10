@@ -189,7 +189,17 @@ def save_csv(res, columns, **kwargs):
     hs = hashlib.md5(str(args_tmp).encode()).hexdigest()
     filename = f"./output/result_{tmp}_{sep_cnt}_{hs}.csv"
 
-    with open(filename, "w", newline="", encoding="utf-8") as f:
+    # define encoding
+    if kwargs["type"] == "01":
+        encoding = "cp932"
+    elif kwargs["type"] == "02":
+        encoding = "utf-8"
+    else:
+        logger.error(f'invalid encoding type: {kwargs["type"]}. \
+            it must be set "01" or "02."')
+        exit(1)
+
+    with open(filename, "w", newline="", encoding=encoding) as f:
         writer = csv.writer(f)
         writer.writerow(columns)
         writer.writerows(reader)
@@ -234,9 +244,14 @@ if __name__ == "__main__":
         , "enCityName", "enAddressOutsid", "furigana", "hihyoji"
     ]
 
-    # download csv
+    # download data
+    # ToDo: define function
     res = fetch_data(api_url, api_key, **args_dict)
-    sep_num = save_csv(res, columns, **args_dict)
+    if args.type in ["01", "02"]:
+        sep_num = save_csv(res, columns, **args_dict)
+    else:
+        # ToDo: define save_xml function
+        exit()
 
     # repeat until all separated data are downloaded
     # when args.divide is not set, download is not repeated
@@ -245,4 +260,7 @@ if __name__ == "__main__":
             time.sleep(5)
             args_dict["divide"] = i
             res = fetch_data(api_url, api_key, **args_dict)
-            sep_num = save_csv(res, columns, **args_dict)
+            if args.type in ["01", "02"]:
+                sep_num = save_csv(res, columns, **args_dict)
+            else:
+                exit()
