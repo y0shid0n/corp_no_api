@@ -45,17 +45,18 @@ def create_args():
     parser = argparse.ArgumentParser(
         description="download corporate number and related information by csv"
         )
+    g_main = parser.add_argument_group("main args")
     # you must set either "-c", "-d", "-p" or "-n"
-    g_main = parser.add_mutually_exclusive_group(required=True)
-    g_main.add_argument("-c", "--corpno", type=int
+    g_excl = g_main.add_mutually_exclusive_group(required=True)
+    g_excl.add_argument("-c", "--corpno", type=int
         , help="target corporate number: 13-digit integer")
-    g_main.add_argument("-d", "--date", type=date_type
+    g_excl.add_argument("-d", "--date", type=date_type
         , help="target date: YYYY-MM-DD")
-    g_main.add_argument("-p", "--period", type=date_type, nargs=2
+    g_excl.add_argument("-p", "--period", type=date_type, nargs=2
         , help="start and end date: YYYY-MM-DD")
-    g_main.add_argument("-n", "--name", type=str, help="corporate name: hoge")
+    g_excl.add_argument("-n", "--name", type=str, help="corporate name: hoge")
 
-    g_sub = parser.add_argument_group("sub group")
+    g_sub = parser.add_argument_group("sub args")
     g_sub.add_argument("--type", type=str, choices=["01", "02", "12"]
         , default="02"
         , help="output file type: csv(sjis), csv(utf8) or xml")
@@ -63,7 +64,7 @@ def create_args():
     g_sub.add_argument("--divide", type=int, default=None
         , help="target separated number")
 
-    g_opt = parser.add_argument_group("optional group")
+    g_opt = parser.add_argument_group("additional args")
     g_opt.add_argument("--history", type=int, choices=[0, 1], default=0
         , help="wheter to get old info (use with --corpno)")
     g_opt.add_argument("--address", type=int
