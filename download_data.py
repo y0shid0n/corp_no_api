@@ -251,6 +251,8 @@ if __name__ == "__main__":
         sep_num = save_csv(res, columns, **args_dict)
     else:
         # ToDo: define save_xml function
+        logger.error("sorry, xml format cannot be used yet. \
+            please use csv format.")
         exit()
 
     # repeat until all separated data are downloaded
