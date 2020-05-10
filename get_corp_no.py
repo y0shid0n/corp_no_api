@@ -51,19 +51,17 @@ def create_args():
         , help="target corporate number: 13-digit integer")
     g_main.add_argument("-d", "--date", type=date_type
         , help="target date: YYYY-MM-DD")
-    g_main.add_argument("-p", "--period", action="store_true"
-        , help="whether to set target period")
+    g_main.add_argument("-p", "--period", type=date_type, nargs=2
+        , help="start and end date: YYYY-MM-DD")
     g_main.add_argument("-n", "--name", type=str, help="corporate name: hoge")
 
     g_sub = parser.add_argument_group("sub group")
-    g_sub.add_argument("--fromto", type=date_type, nargs=2
-        , help="start and end date (use with --period or --name): YYYY-MM-DD")
     g_sub.add_argument("--type", type=str, choices=["01", "02", "12"]
         , default="02"
         , help="output file type: csv(sjis), csv(utf8) or xml")
     # to judge whether to repeat, default value of --divide is None
     g_sub.add_argument("--divide", type=int, default=None
-        , help="separated number")
+        , help="target separated number")
 
     g_opt = parser.add_argument_group("optional group")
     g_opt.add_argument("--history", type=int, choices=[0, 1], default=0
@@ -75,6 +73,8 @@ def create_args():
         , default=["01", "02", "03", "04"], choices=["01", "02", "03", "04"]
         , help="corporate type (use with --date, --period or --name): \
             government agency, local government, corpration or others")
+    g_opt.add_argument("--fromto", type=date_type, nargs=2
+        , help="start and end date (use with --name): YYYY-MM-DD")
     g_opt.add_argument("--mode", type=int, choices=[1, 2], default=1
         , help="search type (use with --name): prefix match or partial match")
     g_opt.add_argument("--target", type=int, choices=[1, 2, 3], default=1
@@ -110,8 +110,8 @@ def create_payload(api_key, **kwargs):
         if kwargs["address"]:
             payload["address"] = kwargs["address"]
     elif kwargs["period"]:
-        payload["from"] = kwargs["fromto"][0]
-        payload["to"] = kwargs["fromto"][1]
+        payload["from"] = kwargs["period"][0]
+        payload["to"] = kwargs["period"][1]
         payload["kind"] = kwargs["kind"]
         payload["divide"] = kwargs["divide"]
         if kwargs["address"]:
@@ -177,8 +177,8 @@ def save_csv(res, columns, **kwargs):
     elif kwargs["date"]:
         tmp = kwargs["date"].replace("-", "")
     elif kwargs["period"]:
-        tmp = kwargs["fromto"][0].replace("-", "") + "-" \
-            + kwargs["fromto"][1].replace("-", "")
+        tmp = kwargs["period"][0].replace("-", "") + "-" \
+            + kwargs["period"][1].replace("-", "")
     else:
         tmp = kwargs["name"]
 
