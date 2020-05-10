@@ -135,13 +135,13 @@ def create_payload(api_key, **kwargs):
     return payload
 
 
-def fetch_data(api_url, payload, **kwargs):
+def fetch_data(api_url, payload, corpno, date, period):
     """
     fetch data using created url and payload
     """
-    if kwargs["corpno"]:
+    if corpno:
         api_url = urljoin(api_url, "num")
-    elif kwargs["date"] or kwargs["period"]:
+    elif date or period:
         api_url = urljoin(api_url, "diff")
     else:
         api_url = urljoin(api_url, "name")
@@ -244,7 +244,7 @@ if __name__ == "__main__":
     # ToDo: define function
     payload = create_payload(api_key, **args_dict)
     logger.debug(f"payload: {payload}")
-    res = fetch_data(api_url, payload, **args_dict)
+    res = fetch_data(api_url, payload, args.corpno, args.date, args.period)
     if args.type in ["01", "02"]:
         sep_num = save_csv(res, columns, **args_dict)
     else:
@@ -258,7 +258,7 @@ if __name__ == "__main__":
         for i in range(2, sep_num + 1):
             time.sleep(5)
             payload["divide"] = i
-            res = fetch_data(api_url, payload, **args_dict)
+            res = fetch_data(api_url, payload, args.corpno, args.date, args.period)
             if args.type in ["01", "02"]:
                 sep_num = save_csv(res, columns, **args_dict)
             else:
