@@ -10,6 +10,9 @@ import argparse
 from datetime import date
 from logging import getLogger, StreamHandler, Formatter
 import hashlib
+import xml.etree.ElementTree as ET
+from xml.dom import minidom
+
 
 # create logger
 logger = getLogger(__name__)
@@ -157,18 +160,10 @@ def fetch_data(api_url, payload, corpno, date, period):
     return res
 
 
-def save_csv(res, columns, **kwargs):
+def create_filename(**kwargs):
     """
-    save csv file from response
+    create file name from args
     """
-    reader = csv.reader(io.StringIO(res.text))
-
-    # get separate number from header
-    line1 = next(reader) # drop header
-    logger.debug(f"header info: {line1}")
-    sep_cnt = line1[2]
-    sep_num = line1[3]
-
     # create filename
     if kwargs["corpno"]:
         tmp = kwargs["corpno"]
@@ -180,20 +175,58 @@ def save_csv(res, columns, **kwargs):
     else:
         tmp = kwargs["name"]
 
+    # get separated number
+    if kwargs["divide"]:
+        sep_cnt = kwargs["divide"]
+    else:
+        sep_cnt = "1"
+
     # create hash value of args
     args_tmp = kwargs.copy()
     del args_tmp["divide"] # prevent to change hash value in repeating
     hs = hashlib.md5(str(args_tmp).encode()).hexdigest()
-    filename = f"./output/result_{tmp}_{sep_cnt}_{hs}.csv"
 
+    # create extension
+    if kwargs["type"] == "12":
+        ext = "xml"
+    elif kwargs["type"] in ["01", "02"]:
+        ext = "csv"
+    else:
+        logger.error(f'invalid encoding type: {type}. it must be set "01", "02" or "12".')
+        exit(1)
+
+    filename = f"./output/result_{tmp}_{sep_cnt}_{hs}.{ext}"
+
+    return filename
+
+
+def define_encoding(type):
+    """
+    define file encoding to save
+    """
     # define encoding
-    if kwargs["type"] == "01":
+    if type == "01":
         encoding = "cp932"
-    elif kwargs["type"] == "02":
+    elif type in ["02", "12"]:
         encoding = "utf-8"
     else:
-        logger.error(f'invalid encoding type: {kwargs["type"]}. it must be set "01" or "02."')
+        logger.error(f'invalid encoding type: {type}. it must be set "01", "02" or "12".')
         exit(1)
+
+    return encoding
+
+
+def save_csv(res, columns, filename, encoding):
+    """
+    save csv file from response
+    """
+    reader = csv.reader(io.StringIO(res.text))
+
+    # get separate number from header
+    line1 = next(reader) # drop header
+    logger.debug(f"header info: {line1}")
+    sep_cnt = line1[2]
+    sep_num = line1[3]
 
     with open(filename, "w", newline="", encoding=encoding) as f:
         writer = csv.writer(f)
@@ -201,6 +234,45 @@ def save_csv(res, columns, **kwargs):
         writer.writerows(reader)
 
     return int(sep_num) # for repeat
+
+
+def save_xml(res, filename, encoding):
+    """
+    save xml file from response
+    """
+    root = ET.fromstring(res.text)
+    logger.debug(f"header info: {root[0].text}, {root[1].text}, {root[2].text}, {root[3].text}")
+    sep_cnt = root[2].text
+    sep_num = root[3].text
+
+    # parse xml formatted text
+    xmlstr = minidom.parseString(ET.tostring(root)).toprettyxml(indent="   ")
+
+    with open(filename, "w", encoding=encoding) as f:
+        f.write(xmlstr)
+
+    return int(sep_num) # for repeat
+
+
+def xml2csv(xml_str, type, columns, filename, encoding="utf-8"):
+    """
+    convert xml to csv
+    """
+    # get separate number from header
+    # there is header info from index 0 to index 3
+    root = ET.fromstring(xml_str)
+    logger.debug(f"header info: {root[0].text}, {root[1].text}, {root[2].text}, {root[3].text}")
+
+    # there is corporation data in after index 4
+    data_list = []
+    for i in range(4, len(root) + 1):
+        data_corp = [i for i in root[i].text]
+        data_list.append(data_corp)
+
+    with open(filename, "w", newline="", encoding=encoding) as f:
+        writer = csv.writer(f)
+        writer.writerow(columns)
+        writer.writerows(data_list)
 
 
 if __name__ == "__main__":
@@ -245,12 +317,12 @@ if __name__ == "__main__":
     payload = create_payload(api_key, **args_dict)
     logger.debug(f"payload: {payload}")
     res = fetch_data(api_url, payload, args.corpno, args.date, args.period)
+    filename = create_filename(**args_dict)
+    encoding = define_encoding(args.type)
     if args.type in ["01", "02"]:
-        sep_num = save_csv(res, columns, **args_dict)
+        sep_num = save_csv(res, columns, filename, encoding)
     else:
-        # ToDo: define save_xml function
-        logger.error("sorry, xml format cannot be used yet. please use csv format.")
-        exit()
+        sep_num = save_xml(res, filename, encoding)
 
     # repeat until all separated data are downloaded
     # when args.divide is not set, download is not repeated
@@ -258,8 +330,10 @@ if __name__ == "__main__":
         for i in range(2, sep_num + 1):
             time.sleep(5)
             payload["divide"] = i
+            args_dict["divide"] = i
             res = fetch_data(api_url, payload, args.corpno, args.date, args.period)
+            filename = create_filename(**args_dict)
             if args.type in ["01", "02"]:
-                sep_num = save_csv(res, columns, **args_dict)
+                sep_num = save_csv(res, columns, filename, encoding)
             else:
-                exit()
+                sep_num = save_xml(res, filename, encoding)
