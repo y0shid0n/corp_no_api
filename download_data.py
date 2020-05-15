@@ -1,257 +1,16 @@
 # download csv from corporate number search api
 
-import requests
-from urllib.parse import urljoin
-import io
 import yaml
-import csv
 import time
-import argparse
-from datetime import date
-from logging import getLogger, StreamHandler, Formatter
-import hashlib
+from logging import getLogger, StreamHandler, Formatter, config
 import xml.etree.ElementTree as ET
 from xml.dom import minidom
 
-
 # create logger
+config.fileConfig('./conf/logging.conf')
 logger = getLogger(__name__)
-log_fmt = Formatter("%(asctime)s %(name)s %(lineno)s \
-    [%(levelname)s][%(funcName)s] %(message)s")
 
-# set log level
-log_level = "INFO"
-logger.setLevel(log_level)
-
-# create handler
-handler = StreamHandler()
-handler.setLevel(log_level)
-handler.setFormatter(log_fmt)
-logger.addHandler(handler)
-
-def date_type(date_str):
-    """
-    type of args used for --date, --start and --end in create_args()
-    it must be string formatted with YYYY-MM-DD
-    """
-    try:
-        date.fromisoformat(date_str)
-    except ValueError as e:
-        raise argparse.ArgumentTypeError(str(e)
-            + " date must be in ISO format(YYYY-MM-DD)")
-    return date_str
-
-
-def create_args():
-    """
-    create args
-    """
-    parser = argparse.ArgumentParser(
-        description="download corporate number and related information by csv"
-        )
-    g_main = parser.add_argument_group("main args")
-    # you must set either "-c", "-d", "-p" or "-n"
-    g_excl = g_main.add_mutually_exclusive_group(required=True)
-    g_excl.add_argument("-c", "--corpno", type=int
-        , help="target corporate number: 13-digit integer")
-    g_excl.add_argument("-d", "--date", type=date_type
-        , help="target date: YYYY-MM-DD")
-    g_excl.add_argument("-p", "--period", type=date_type, nargs=2
-        , help="start and end date: YYYY-MM-DD")
-    g_excl.add_argument("-n", "--name", type=str, help="corporate name: hoge")
-
-    g_sub = parser.add_argument_group("sub args")
-    g_sub.add_argument("--type", type=str, choices=["01", "02", "12"]
-        , default="02"
-        , help="output file type: csv(sjis), csv(utf8) or xml")
-    # to judge whether to repeat, default value of --divide is None
-    g_sub.add_argument("--divide", type=int, default=None
-        , help="target separated number")
-
-    g_opt = parser.add_argument_group("additional args")
-    g_opt.add_argument("--history", type=int, choices=[0, 1], default=0
-        , help="wheter to get old info (use with --corpno)")
-    g_opt.add_argument("--address", type=int
-        , help="area code (use with --date, --period or --name): \
-            2-digit or 5-digit integer")
-    g_opt.add_argument("--kind", type=str, nargs="*"
-        , default=["01", "02", "03", "04"], choices=["01", "02", "03", "04"]
-        , help="corporate type (use with --date, --period or --name): \
-            government agency, local government, corpration or others")
-    g_opt.add_argument("--fromto", type=date_type, nargs=2
-        , help="start and end date (use with --name): YYYY-MM-DD")
-    g_opt.add_argument("--mode", type=int, choices=[1, 2], default=1
-        , help="search type (use with --name): prefix match or partial match")
-    g_opt.add_argument("--target", type=int, choices=[1, 2, 3], default=1
-        , help="search target (use with --name): \
-            fuzzy search, exact match or English")
-    g_opt.add_argument("--change", type=int, choices=[0, 1], default=0
-        , help="whether search old information (use with --name)")
-    g_opt.add_argument("--close", type=int, choices=[0, 1], default=1
-        , help="whether search closed corporation (use with --name)")
-    args = parser.parse_args()
-
-    return args
-
-
-def create_payload(api_key, **kwargs):
-    """
-    create url and payload depending on args
-    """
-    # default payload
-    payload = {
-        "id": api_key,
-        "type": kwargs["type"]
-    }
-
-    if kwargs["corpno"]:
-        payload["number"] = kwargs["corpno"]
-        payload["history"] = kwargs["history"]
-    elif kwargs["date"]:
-        payload["from"] = kwargs["date"]
-        payload["to"] = kwargs["date"]
-        payload["kind"] = kwargs["kind"]
-        payload["divide"] = kwargs["divide"]
-        if kwargs["address"]:
-            payload["address"] = kwargs["address"]
-    elif kwargs["period"]:
-        payload["from"] = kwargs["period"][0]
-        payload["to"] = kwargs["period"][1]
-        payload["kind"] = kwargs["kind"]
-        payload["divide"] = kwargs["divide"]
-        if kwargs["address"]:
-            payload["address"] = kwargs["address"]
-    else:
-        payload["name"] = kwargs["name"]
-        payload["mode"] = kwargs["mode"]
-        payload["target"] = kwargs["target"]
-        payload["kind"] = kwargs["kind"]
-        payload["change"] = kwargs["change"]
-        payload["close"] = kwargs["close"]
-        payload["divide"] = kwargs["divide"]
-        if kwargs["fromto"]:
-            payload["from"] = kwargs["fromto"][0]
-            payload["to"] = kwargs["fromto"][1]
-        if kwargs["address"]:
-            payload["address"] = kwargs["address"]
-
-    return payload
-
-
-def fetch_data(api_url, payload, corpno, date, period):
-    """
-    fetch data using created url and payload
-    """
-    if corpno:
-        api_url = urljoin(api_url, "num")
-    elif date or period:
-        api_url = urljoin(api_url, "diff")
-    else:
-        api_url = urljoin(api_url, "name")
-
-    res = requests.get(api_url, params=payload)
-    logger.debug(res.url)
-
-    # ToDo: error check
-    if res.status_code != 200:
-        logger.error(f"***http error!!!***; status code: {res.status_code}; response: {res.text}")
-        exit(1)
-
-    return res
-
-
-def create_filename(**kwargs):
-    """
-    create file name from args
-    """
-    # create filename
-    if kwargs["corpno"]:
-        tmp = kwargs["corpno"]
-    elif kwargs["date"]:
-        tmp = kwargs["date"].replace("-", "")
-    elif kwargs["period"]:
-        tmp = kwargs["period"][0].replace("-", "") + "-" \
-            + kwargs["period"][1].replace("-", "")
-    else:
-        tmp = kwargs["name"]
-
-    # get separated number
-    if kwargs["divide"]:
-        sep_cnt = kwargs["divide"]
-    else:
-        sep_cnt = "1"
-
-    # create hash value of args
-    args_tmp = kwargs.copy()
-    del args_tmp["divide"] # prevent to change hash value in repeating
-    hs = hashlib.md5(str(args_tmp).encode()).hexdigest()
-
-    # create extension
-    if kwargs["type"] == "12":
-        ext = "xml"
-    elif kwargs["type"] in ["01", "02"]:
-        ext = "csv"
-    else:
-        logger.error(f'invalid encoding type: {type}. it must be set "01", "02" or "12".')
-        exit(1)
-
-    filename = f"./output/result_{tmp}_{sep_cnt}_{hs}.{ext}"
-
-    return filename
-
-
-def define_encoding(type):
-    """
-    define file encoding to save
-    """
-    # define encoding
-    if type == "01":
-        encoding = "cp932"
-    elif type in ["02", "12"]:
-        encoding = "utf-8"
-    else:
-        logger.error(f'invalid encoding type: {type}. it must be set "01", "02" or "12".')
-        exit(1)
-
-    return encoding
-
-
-def save_csv(res, columns, filename, encoding):
-    """
-    save csv file from response
-    """
-    reader = csv.reader(io.StringIO(res.text))
-
-    # get separate number from header
-    line1 = next(reader) # drop header
-    logger.debug(f"header info: {line1}")
-    sep_cnt = line1[2]
-    sep_num = line1[3]
-
-    with open(filename, "w", newline="", encoding=encoding) as f:
-        writer = csv.writer(f)
-        writer.writerow(columns)
-        writer.writerows(reader)
-
-    return int(sep_num) # for repeat
-
-
-def save_xml(res, filename, encoding):
-    """
-    save xml file from response
-    """
-    root = ET.fromstring(res.text)
-    logger.debug(f"header info: {root[0].text}, {root[1].text}, {root[2].text}, {root[3].text}")
-    sep_cnt = root[2].text
-    sep_num = root[3].text
-
-    # parse xml formatted text
-    xmlstr = minidom.parseString(ET.tostring(root)).toprettyxml(indent="   ")
-
-    with open(filename, "w", encoding=encoding) as f:
-        f.write(xmlstr)
-
-    return int(sep_num) # for repeat
+from corp_no_api import CorpNoApi
 
 
 def xml2csv(xml_str, type, columns, filename, encoding="utf-8"):
@@ -276,23 +35,6 @@ def xml2csv(xml_str, type, columns, filename, encoding="utf-8"):
 
 
 if __name__ == "__main__":
-    # create args
-    args = create_args()
-    logger.debug(f"all args: {args}")
-
-    # check corporate number
-    if args.corpno and len(str(args.corpno)) != 13:
-        logger.error("*****corporate number must be 13-digit integer*****")
-        exit(1)
-
-    # it is need to judge repeat later.
-    # so it is need to be remained when args.divide is not set.
-    # otherwise, api expects default value is 1.
-    # so args_dict["divide"] is only updated.
-    args_dict = vars(args).copy()
-    if not args.divide:
-        args_dict["divide"] = 1
-
     # read yaml
     with open("./conf/config.yml") as f:
         conf = yaml.safe_load(f)
@@ -301,39 +43,11 @@ if __name__ == "__main__":
     api_url = conf["default"]["api_url"]
     api_key = conf["default"]["api_key"]
 
-    # define columns of csv (30 columns)
-    columns = [
-        "sequenceNumber", "corporateNumber", "process", "correct", "updateDate"
-        , "changeDate", "name", "nameImageId", "kind", "prefectureName"
-        , "cityName", "streetNumber", "addressImageId", "prefectureCode"
-        , "cityCode", "postCode", "addressOutside", "addressOutsideImageId"
-        , "closeDate", "closeCause", "successorCorporateNumber", "changeCause"
-        , "assignmentDate", "latest", "enName", "enPrefectureName"
-        , "enCityName", "enAddressOutsid", "furigana", "hihyoji"
-    ]
+    # create output directory
+    output_dir = "./output/"
 
-    # download data
-    # ToDo: define function
-    payload = create_payload(api_key, **args_dict)
-    logger.debug(f"payload: {payload}")
-    res = fetch_data(api_url, payload, args.corpno, args.date, args.period)
-    filename = create_filename(**args_dict)
-    encoding = define_encoding(args.type)
-    if args.type in ["01", "02"]:
-        sep_num = save_csv(res, columns, filename, encoding)
-    else:
-        sep_num = save_xml(res, filename, encoding)
+    # create instance
+    corp_no_api = CorpNoApi(api_url, api_key)
 
-    # repeat until all separated data are downloaded
-    # when args.divide is not set, download is not repeated
-    if not args.divide and sep_num > 1:
-        for i in range(2, sep_num + 1):
-            time.sleep(5)
-            payload["divide"] = i
-            args_dict["divide"] = i
-            res = fetch_data(api_url, payload, args.corpno, args.date, args.period)
-            filename = create_filename(**args_dict)
-            if args.type in ["01", "02"]:
-                sep_num = save_csv(res, columns, filename, encoding)
-            else:
-                sep_num = save_xml(res, filename, encoding)
+    # exec api and save file
+    corp_no_api.download_data(output_dir)

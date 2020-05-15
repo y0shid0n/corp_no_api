@@ -2,3 +2,5 @@
 conf/config.yml
 output/*
 !output/.gitkeep
+log/*
+!log/.gitkeep
