@@ -93,6 +93,7 @@ class CorpNoApi:
         g_opt.add_argument("--close", type=int, choices=[0, 1], default=1
             , help="whether search closed corporation (use with --name)")
         self.args = parser.parse_args()
+        logger.debug(f"all args: {self.args}")
 
         if self.args.divide:
             self.divide = self.args.divide
@@ -258,7 +259,6 @@ class CorpNoApi:
         """
         # create args
         self.create_args()
-        logger.debug(f"all args: {self.args}")
 
         # check corporate number
         if self.args.corpno and len(str(self.args.corpno)) != 13:
