@@ -43,8 +43,8 @@ if __name__ == "__main__":
     api_url = conf["default"]["api_url"]
     api_key = conf["default"]["api_key"]
 
-    # create output directory
-    output_dir = "./output/"
+    # get output directory
+    output_dir = conf["default"]["output_dir"]
 
     # create instance
     corp_no_api = CorpNoApi(api_url, api_key)

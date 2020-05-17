@@ -1,3 +1,4 @@
 default:
   api_url: "https://api.houjin-bangou.nta.go.jp/4/"
   api_key: "hogehoge"
+  output_dir: "./output/"
