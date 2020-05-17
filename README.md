@@ -7,17 +7,17 @@ https://www.houjin-bangou.nta.go.jp/webapi/
 
 1. registrate to API
 
-  1. you can registrate from from the above URL and get API key.
+    1. you can registrate from from the above URL and get API key.
 
 1. create config.yml
 
-  1. copy `conf/config.yml.template` to `conf/config.yml`.
+    1. copy `conf/config.yml.template` to `conf/config.yml`.
 
-  1. update `api_key` to your API key. (if necessary, update other params.)
+    1. update `api_key` to your API key. (if necessary, update other params.)
 
 1. execute API
 
-  1. you can check all arguments by following command.
+    1. you can check all arguments by following command.
 
     ```python
     python download_data.py -h
