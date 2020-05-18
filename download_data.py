@@ -22,7 +22,7 @@ def xml2csv(xml_str, type, columns, filename, encoding="utf-8"):
     root = ET.fromstring(xml_str)
     logger.debug(f"header info: {root[0].text}, {root[1].text}, {root[2].text}, {root[3].text}")
 
-    # there is corporation data in after index 4
+    # there is corporation data after index 4
     data_list = []
     for i in range(4, len(root) + 1):
         data_corp = [i for i in root[i].text]
