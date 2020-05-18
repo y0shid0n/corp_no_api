@@ -32,6 +32,7 @@ class CorpNoApi:
             , "enCityName", "enAddressOutsid", "furigana", "hihyoji"
         ] # columns of csv (30 columns)
 
+
     def date_type(self, date_str):
         """
         type of args used for --date, --start and --end in create_args()
