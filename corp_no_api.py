@@ -12,6 +12,8 @@ from logging import getLogger
 from urllib.parse import urljoin
 import xml.etree.ElementTree as ET
 from xml.dom import minidom
+import pandas as pd
+import json
 
 # create logger
 logger = getLogger(__name__)
@@ -288,3 +290,47 @@ class CorpNoApi:
                     sep_num = self.save_csv(res, output_dir)
                 else:
                     sep_num = self.save_xml(res, output_dir)
+
+
+    def fetch2json(self, type, name, address):
+        """
+        fetch data(csv) and return json
+        とりあえず作った（暫定）
+        """
+        payload = {
+            "id": self.api_key
+        }
+        payload["type"] = type
+        payload["name"] = name
+        payload["address"] = address
+        # payload["mode"] = self.args.mode
+        # payload["target"] = self.args.target
+        # payload["kind"] = self.args.kind
+        # payload["change"] = self.args.change
+        # payload["close"] = self.args.close
+        # payload["divide"] = self.divide
+        # if self.args.fromto:
+        #     payload["from"] = self.args.fromto[0]
+        #     payload["to"] = self.args.fromto[1]
+
+        if type == "12":
+            raise Exception("file type must be csv.")
+
+        # ToDo: modify fetch_data()
+        url = urljoin(self.api_url, "name")
+        res = requests.get(url, params=payload)
+
+        reader = csv.reader(io.StringIO(res.text))
+
+        # get separate number from header
+        line1 = next(reader) # drop header
+        logger.debug(f"header info: {line1}")
+        sep_cnt = line1[2]
+        sep_num = line1[3]
+
+        # transform to pandas
+        res_df = pd.DataFrame(reader, columns=self.columns)
+        # transform to json
+        res_js = json.loads(res_df.to_json(orient='records'))
+
+        return res_js
